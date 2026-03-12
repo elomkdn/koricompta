@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#1a3a5c"/>
+  <circle cx="256" cy="256" r="224" fill="#1e4470"/>
+
+  <!-- Cowrie shell body - oval shape -->
+  <ellipse cx="256" cy="240" rx="100" ry="140" fill="#f5e6c8" stroke="#c4a265" stroke-width="4"/>
+
+  <!-- Cowrie shell glossy highlight -->
+  <ellipse cx="236" cy="180" rx="50" ry="70" fill="#fdf3e0" opacity="0.6"/>
+
+  <!-- Cowrie shell opening (slit) - the characteristic line -->
+  <path d="M 256 120 Q 248 180 244 240 Q 242 280 248 340 Q 252 360 256 360"
+        stroke="#8b6914" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M 256 120 Q 264 180 268 240 Q 270 280 264 340 Q 260 360 256 360"
+        stroke="#8b6914" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+  <!-- Cowrie teeth marks (ridges along the slit) -->
+  <g stroke="#a07d2e" stroke-width="2.5" stroke-linecap="round">
+    <line x1="248" y1="145" x2="264" y2="145"/>
+    <line x1="246" y1="165" x2="266" y2="165"/>
+    <line x1="245" y1="185" x2="267" y2="185"/>
+    <line x1="244" y1="205" x2="268" y2="205"/>
+    <line x1="244" y1="225" x2="268" y2="225"/>
+    <line x1="244" y1="245" x2="268" y2="245"/>
+    <line x1="244" y1="265" x2="268" y2="265"/>
+    <line x1="245" y1="285" x2="267" y2="285"/>
+    <line x1="247" y1="305" x2="265" y2="305"/>
+    <line x1="249" y1="325" x2="263" y2="325"/>
+    <line x1="251" y1="345" x2="261" y2="345"/>
+  </g>
+
+  <!-- Subtle shadow under shell -->
+  <ellipse cx="256" cy="390" rx="80" ry="12" fill="#0d2640" opacity="0.4"/>
+
+  <!-- Gold accent ring -->
+  <circle cx="256" cy="256" r="224" fill="none" stroke="#c4a265" stroke-width="3" opacity="0.6"/>
+  <circle cx="256" cy="256" r="234" fill="none" stroke="#c4a265" stroke-width="1.5" opacity="0.3"/>
+
+  <!-- Text: KORI -->
+  <text x="256" y="455" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif"
+        font-size="52" font-weight="700" letter-spacing="12" fill="#f5e6c8">KORI</text>
+
+  <!-- Small decorative dots (like cowrie pattern) -->
+  <circle cx="160" cy="460" r="4" fill="#c4a265" opacity="0.5"/>
+  <circle cx="352" cy="460" r="4" fill="#c4a265" opacity="0.5"/>
+</svg>

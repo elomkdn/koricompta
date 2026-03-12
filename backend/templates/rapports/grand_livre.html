@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Grand Livre</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 10px; margin: 20px; }
+        h1 { text-align: center; font-size: 16px; margin-bottom: 5px; }
+        h2 { font-size: 12px; background: #1F4E79; color: white; padding: 5px; margin-top: 15px; }
+        .info { text-align: center; font-size: 11px; margin-bottom: 15px; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th { background: #E8EEF4; padding: 4px 6px; text-align: left; border: 1px solid #ccc; font-size: 9px; }
+        td { padding: 3px 6px; border: 1px solid #ddd; }
+        .number { text-align: right; }
+        .total-row { font-weight: bold; background: #f5f5f5; }
+        @page { size: A4 landscape; margin: 15mm; }
+    </style>
+</head>
+<body>
+    <h1>Grand Livre</h1>
+    <div class="info">{{ societe_nom }} — Exercice {{ exercice_code }}</div>
+
+    {% for compte_data in data %}
+    <h2>{{ compte_data.compte.numero }} — {{ compte_data.compte.intitule }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width:10%">Date</th>
+                <th style="width:6%">Journal</th>
+                <th style="width:8%">Pièce</th>
+                <th style="width:30%">Libellé</th>
+                <th style="width:10%">Tiers</th>
+                <th style="width:12%" class="number">Débit</th>
+                <th style="width:12%" class="number">Crédit</th>
+                <th style="width:12%" class="number">Solde</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ligne in compte_data.lignes %}
+            <tr>
+                <td>{{ ligne.date }}</td>
+                <td>{{ ligne.journal }}</td>
+                <td>{{ ligne.piece }}</td>
+                <td>{{ ligne.libelle }}</td>
+                <td>{{ ligne.tiers }}</td>
+                <td class="number">{{ ligne.debit|floatformat:2 }}</td>
+                <td class="number">{{ ligne.credit|floatformat:2 }}</td>
+                <td class="number">{{ ligne.solde_progressif|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="5">TOTAUX</td>
+                <td class="number">{{ compte_data.total_debit|floatformat:2 }}</td>
+                <td class="number">{{ compte_data.total_credit|floatformat:2 }}</td>
+                <td class="number">{{ compte_data.solde|floatformat:2 }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endfor %}
+</body>
+</html>

@@ -1,0 +1,32 @@
+╔══════════════════════════════════════════════════════╗
+║               KoriCompta v1.0.0                      ║
+║        Comptabilité OHADA / SYSCOHADA                ║
+║        Développé par Elom Systems                    ║
+╚══════════════════════════════════════════════════════╝
+
+INSTALLATION
+────────────
+1. Ouvrir un terminal dans ce dossier
+2. Lancer l'installation :
+     ./install.sh
+3. Lancer l'application :
+     ./koricompta
+
+PREMIÈRE CONNEXION
+──────────────────
+  Identifiant : admin
+  Mot de passe : admin
+
+  ⚠ Changez le mot de passe après la première connexion.
+
+CONFIGURATION REQUISE
+─────────────────────
+  • Linux (Ubuntu 22.04+, Linux Mint 21+, Debian 12+)
+  • Python 3.10 ou supérieur
+  • 200 Mo d'espace disque
+  • Aucune connexion Internet requise
+
+SUPPORT
+───────
+  Email : contact@elom.systems
+

@@ -1,0 +1,12 @@
+#!/bin/bash
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if [ ! -d "$APP_DIR/backend/venv" ]; then
+    echo "KoriCompta n'est pas installé. Lancez d'abord :"
+    echo "  ./install.sh"
+    exit 1
+fi
+
+cd "$APP_DIR"
+source backend/venv/bin/activate
+python kompta.py
