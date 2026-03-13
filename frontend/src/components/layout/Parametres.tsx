@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card, Form, Input, Select, Button, Table, Tag, Modal, DatePicker,
   Popconfirm, Space, message, Typography, Row, Col, Alert,
@@ -37,6 +37,19 @@ const Parametres: React.FC<Props> = ({
   const [exerciceModalOpen, setExerciceModalOpen] = useState(false);
   const [savingExercice, setSavingExercice] = useState(false);
   const [exerciceForm] = Form.useForm();
+  const exerciceCode = Form.useWatch('code', exerciceForm);
+
+  useEffect(() => {
+    const val = String(exerciceCode ?? '').trim();
+    if (/^\d{4}$/.test(val)) {
+      const y = parseInt(val, 10);
+      exerciceForm.setFieldsValue({
+        libelle: `Exercice ${val}`,
+        date_debut: dayjs(`${y}-01-01`),
+        date_fin: dayjs(`${y}-12-31`),
+      });
+    }
+  }, [exerciceCode]);
 
   // Initialize societe form
   React.useEffect(() => {
@@ -347,24 +360,7 @@ const Parametres: React.FC<Props> = ({
         width={480}
         destroyOnClose
       >
-        <Form
-          form={exerciceForm}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-          onValuesChange={(changed) => {
-            if ('code' in changed) {
-              const val = String(changed.code ?? '').trim();
-              if (/^\d{4}$/.test(val)) {
-                const y = parseInt(val, 10);
-                exerciceForm.setFieldsValue({
-                  libelle: `Exercice ${val}`,
-                  date_debut: dayjs(`${y}-01-01`),
-                  date_fin: dayjs(`${y}-12-31`),
-                });
-              }
-            }
-          }}
-        >
+        <Form form={exerciceForm} layout="vertical" style={{ marginTop: 16 }}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
