@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Form, Input, Select, Button, Table, Tag, Modal, DatePicker,
-  Popconfirm, Space, message, Typography, Row, Col,
+  Popconfirm, Space, message, Typography, Row, Col, Alert,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -30,6 +30,8 @@ const Parametres: React.FC<Props> = ({
   const [societeForm] = Form.useForm();
   const [savingSociete, setSavingSociete] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   // Exercice modal
   const [exerciceModalOpen, setExerciceModalOpen] = useState(false);
@@ -41,6 +43,7 @@ const Parametres: React.FC<Props> = ({
     societeForm.setFieldsValue({
       nom: societe.nom,
       sigle: (societe as any).sigle,
+      forme_juridique: (societe as any).forme_juridique,
       regime_fiscal: (societe as any).regime_fiscal,
       devise: (societe as any).devise,
       adresse: (societe as any).adresse,
@@ -77,6 +80,9 @@ const Parametres: React.FC<Props> = ({
       window.location.reload();
     } catch {
       message.error('Erreur lors de la suppression');
+    } finally {
+      setDeleteModalOpen(false);
+      setDeleteConfirmName('');
     }
   };
 
@@ -210,16 +216,9 @@ const Parametres: React.FC<Props> = ({
                 Charger plan OHADA
               </Button>
             </Popconfirm>
-            <Popconfirm
-              title="Supprimer cette société ?"
-              description="Toutes les données (écritures, comptes, exercices...) seront définitivement supprimées. Cette action est irréversible."
-              onConfirm={handleDeleteSociete}
-              okText="Supprimer"
-              cancelText="Annuler"
-              okButtonProps={{ danger: true }}
-            >
-              <Button danger>Supprimer la société</Button>
-            </Popconfirm>
+            <Button danger onClick={() => { setDeleteConfirmName(''); setDeleteModalOpen(true); }}>
+              Supprimer la société
+            </Button>
           </Space>
         }
       >
@@ -236,7 +235,21 @@ const Parametres: React.FC<Props> = ({
             </Col>
             <Col span={6}>
               <Form.Item name="sigle" label="Sigle">
-                <Input placeholder="SARL, SA..." />
+                <Input placeholder="ex: SARL" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="forme_juridique" label="Forme juridique">
+                <Select allowClear placeholder="Sélectionner" options={[
+                  { value: 'SARL', label: 'SARL' },
+                  { value: 'SA',   label: 'SA' },
+                  { value: 'SAS',  label: 'SAS' },
+                  { value: 'SNC',  label: 'SNC' },
+                  { value: 'EI',   label: 'Entreprise individuelle' },
+                  { value: 'GIE',  label: 'GIE' },
+                  { value: 'ONG',  label: 'ONG' },
+                  { value: 'AUTRE',label: 'Autre' },
+                ]} />
               </Form.Item>
             </Col>
             <Col span={6}>
@@ -376,6 +389,30 @@ const Parametres: React.FC<Props> = ({
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      {/* Modal double confirmation suppression société */}
+      <Modal
+        title="Supprimer la société"
+        open={deleteModalOpen}
+        onCancel={() => { setDeleteModalOpen(false); setDeleteConfirmName(''); }}
+        onOk={handleDeleteSociete}
+        okText="Supprimer définitivement"
+        cancelText="Annuler"
+        okButtonProps={{ danger: true, disabled: deleteConfirmName !== societe.nom }}
+      >
+        <Alert
+          type="error"
+          message="Action irréversible"
+          description="Toutes les données liées à cette société (écritures, comptes, exercices, tiers, immobilisations...) seront définitivement supprimées."
+          style={{ marginBottom: 16 }}
+        />
+        <p>Pour confirmer, saisissez le nom exact de la société : <strong>{societe.nom}</strong></p>
+        <Input
+          value={deleteConfirmName}
+          onChange={e => setDeleteConfirmName(e.target.value)}
+          placeholder={societe.nom}
+        />
       </Modal>
     </div>
   );

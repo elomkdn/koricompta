@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Space, Tag, Popconfirm, message } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import type { Societe, Journal } from '../../types';
-import { journalApi } from '../../services/api';
+import type { Societe, Journal, Compte } from '../../types';
+import { journalApi, compteApi } from '../../services/api';
 
 const TYPE_LABELS: Record<string, string> = {
   achat: 'Achats', vente: 'Ventes', banque: 'Banque',
@@ -17,6 +17,7 @@ interface Props { societe: Societe; }
 
 export default function Journaux({ societe }: Props) {
   const [journaux, setJournaux] = useState<Journal[]>([]);
+  const [comptes, setComptes] = useState<Compte[]>([]);
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Journal | null>(null);
@@ -25,8 +26,12 @@ export default function Journaux({ societe }: Props) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await journalApi.list(societe.id);
-      setJournaux(res.data.results ?? res.data);
+      const [jRes, cRes] = await Promise.all([
+        journalApi.list(societe.id),
+        compteApi.list(societe.id),
+      ]);
+      setJournaux(jRes.data.results ?? jRes.data);
+      setComptes(cRes.data.results ?? cRes.data);
     } finally { setLoading(false); }
   };
 
@@ -61,6 +66,11 @@ export default function Journaux({ societe }: Props) {
       render: (t: string) => <Tag color={TYPE_COLORS[t]}>{TYPE_LABELS[t] ?? t}</Tag>,
     },
     {
+      title: 'Contrepartie', dataIndex: 'compte_contrepartie_numero', key: 'contrepartie', width: 120,
+      render: (_: unknown, r: Journal) => (r as any).compte_contrepartie_numero
+        ? <Tag>{(r as any).compte_contrepartie_numero}</Tag> : '—',
+    },
+    {
       title: 'Statut', dataIndex: 'actif', key: 'actif', width: 80,
       render: (a: boolean) => <Tag color={a ? 'green' : 'default'}>{a ? 'Actif' : 'Inactif'}</Tag>,
     },
@@ -92,6 +102,16 @@ export default function Journaux({ societe }: Props) {
           <Form.Item name="intitule" label="Intitulé" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="type_journal" label="Type" rules={[{ required: true }]}>
             <Select options={Object.entries(TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))} />
+          </Form.Item>
+          <Form.Item name="compte_contrepartie" label="Compte de contrepartie" extra="Obligatoire pour les journaux Banque et Caisse">
+            <Select
+              allowClear showSearch placeholder="Sélectionner un compte..."
+              filterOption={(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              options={comptes.filter((c: Compte) => c.type_compte === 'detail').map((c: Compte) => ({
+                value: c.id,
+                label: `${c.numero} — ${c.intitule}`,
+              }))}
+            />
           </Form.Item>
           <Form.Item name="actif" label="Statut" initialValue={true}>
             <Select options={[{ value: true, label: 'Actif' }, { value: false, label: 'Inactif' }]} />

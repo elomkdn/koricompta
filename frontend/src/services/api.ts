@@ -108,6 +108,8 @@ export const releveApi = {
     }),
   derapprocher: (ligneReleveId: number) =>
     api.post('/api/comptabilite/releves/derapprocher/', { ligne_releve_id: ligneReleveId }),
+  ignorer: (ligneReleveId: number) =>
+    api.post('/api/comptabilite/releves/ignorer/', { ligne_releve_id: ligneReleveId }),
 };
 
 // ---- Immobilisations ----

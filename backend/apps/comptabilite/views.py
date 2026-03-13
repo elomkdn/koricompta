@@ -305,6 +305,19 @@ class ReleveBancaireViewSet(viewsets.ModelViewSet):
         RapprochementService.derapprocher(ligne_releve)
         return Response({'status': 'ok'})
 
+    @action(detail=False, methods=['post'])
+    def ignorer(self, request):
+        ligne_releve_id = request.data.get('ligne_releve_id')
+        try:
+            ligne_releve = LigneReleve.objects.get(id=ligne_releve_id)
+        except LigneReleve.DoesNotExist as e:
+            return Response({'error': str(e)}, status=400)
+        ligne_releve.statut = 'ignore'
+        ligne_releve.ligne_ecriture = None
+        ligne_releve.save(update_fields=['statut', 'ligne_ecriture'])
+        ligne_releve.releve.mettre_a_jour_stats()
+        return Response({'status': 'ok'})
+
 
 class ImmobilisationViewSet(viewsets.ModelViewSet):
     queryset = Immobilisation.objects.select_related('compte').all()

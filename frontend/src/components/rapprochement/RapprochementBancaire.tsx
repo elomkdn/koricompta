@@ -3,7 +3,7 @@ import {
   Table, Button, Modal, Form, Select, DatePicker, InputNumber,
   Popconfirm, Tag, Space, message, Typography, Row, Col, Card, Statistic,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, LinkOutlined, DisconnectOutlined, ThunderboltOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { Societe, ExerciceComptable, ReleveBancaire, LigneReleve, Compte } from '../../types';
@@ -157,6 +157,17 @@ const RapprochementBancaire: React.FC<Props> = ({ societe, exercice }) => {
     }
   };
 
+  const handleIgnorer = async (ligneReleveId: number) => {
+    try {
+      await releveApi.ignorer(ligneReleveId);
+      message.success('Ligne ignorée');
+      if (selectedReleve) await loadReleveDetail(selectedReleve);
+      loadData();
+    } catch {
+      message.error("Erreur lors de l'opération");
+    }
+  };
+
   const handleDerapprocher = async (ligneReleveId: number) => {
     try {
       await releveApi.derapprocher(ligneReleveId);
@@ -301,13 +312,22 @@ const RapprochementBancaire: React.FC<Props> = ({ societe, exercice }) => {
       render: (_, record) => {
         if (record.statut === 'rapproche') {
           return (
-            <Popconfirm
-              title="Désapprocher cette ligne ?"
-              onConfirm={() => handleDerapprocher(record.id)}
-              okText="Oui"
-              cancelText="Non"
-            >
+            <Popconfirm title="Désapprocher ?" onConfirm={() => handleDerapprocher(record.id)} okText="Oui" cancelText="Non">
               <Button type="text" size="small" icon={<DisconnectOutlined />} title="Désapprocher" />
+            </Popconfirm>
+          );
+        }
+        if (record.statut === 'non_rapproche') {
+          return (
+            <Popconfirm title="Ignorer cette ligne ?" onConfirm={() => handleIgnorer(record.id)} okText="Oui" cancelText="Non">
+              <Button type="text" size="small" icon={<StopOutlined />} title="Ignorer" />
+            </Popconfirm>
+          );
+        }
+        if (record.statut === 'ignore') {
+          return (
+            <Popconfirm title="Remettre en attente ?" onConfirm={() => handleDerapprocher(record.id)} okText="Oui" cancelText="Non">
+              <Button type="text" size="small" icon={<DisconnectOutlined />} title="Remettre en attente" />
             </Popconfirm>
           );
         }
@@ -406,6 +426,33 @@ const RapprochementBancaire: React.FC<Props> = ({ societe, exercice }) => {
               </Col>
               <Col flex="auto" style={{ textAlign: 'right', paddingTop: 4 }}>
                 <Space>
+                  <Button
+                    type="default"
+                    icon={<UploadOutlined />}
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = '.csv';
+                      input.onchange = async (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (!file || !selectedReleve) return;
+                        const text = await file.text();
+                        const lines = text.trim().split('\n').slice(1);
+                        const lignes = lines.map(line => {
+                          const [date_operation, libelle, reference, montant] = line.split(';');
+                          return { date_operation: date_operation?.trim(), libelle: libelle?.trim(), reference: reference?.trim(), montant: parseFloat(montant?.trim().replace(',', '.')) };
+                        }).filter(l => l.date_operation && !isNaN(l.montant));
+                        try {
+                          await releveApi.importerLignes(selectedReleve.id, lignes);
+                          message.success(`${lignes.length} lignes importées`);
+                          await loadReleveDetail(selectedReleve);
+                        } catch { message.error("Erreur lors de l'import"); }
+                      };
+                      input.click();
+                    }}
+                  >
+                    Importer CSV
+                  </Button>
                   <Button
                     type="default"
                     icon={<ThunderboltOutlined />}
