@@ -192,7 +192,7 @@ class ModeleEcritureSerializer(serializers.ModelSerializer):
             modele.lignes.all().delete()
             from .models import Compte
             for i, l in enumerate(lignes_data):
-                compte_id = l.get('compte')
+                compte_id = l.get('compte_id') or l.get('compte')
                 try:
                     compte = Compte.objects.get(id=compte_id) if compte_id else None
                 except Compte.DoesNotExist:

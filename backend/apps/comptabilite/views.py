@@ -524,26 +524,47 @@ class DeclarationTVAView(APIView):
 
 class BackupView(APIView):
     def get(self, request):
-        import shutil
+        import subprocess, tempfile, os
         from django.conf import settings
-        db_path = settings.DATABASES['default']['NAME']
-        response = HttpResponse(content_type='application/octet-stream')
-        response['Content-Disposition'] = 'attachment; filename="kompta_backup.db"'
-        with open(db_path, 'rb') as f:
-            response.write(f.read())
-        return response
+        db = settings.DATABASES['default']
+        engine = db.get('ENGINE', '')
+
+        if 'sqlite3' in engine:
+            db_path = db['NAME']
+            response = HttpResponse(content_type='application/octet-stream')
+            response['Content-Disposition'] = 'attachment; filename="kompta_backup.db"'
+            with open(db_path, 'rb') as f:
+                response.write(f.read())
+            return response
+
+        elif 'postgresql' in engine:
+            import dj_database_url
+            env = os.environ.copy()
+            env['PGPASSWORD'] = db.get('PASSWORD', '')
+            with tempfile.NamedTemporaryFile(suffix='.sql', delete=False) as tmp:
+                tmp_path = tmp.name
+            try:
+                subprocess.run([
+                    'pg_dump',
+                    '-h', db.get('HOST', 'db'),
+                    '-U', db.get('USER', 'koricompta'),
+                    '-d', db.get('NAME', 'koricompta'),
+                    '-f', tmp_path,
+                ], env=env, check=True)
+                response = HttpResponse(content_type='application/sql')
+                response['Content-Disposition'] = 'attachment; filename="kompta_backup.sql"'
+                with open(tmp_path, 'rb') as f:
+                    response.write(f.read())
+                return response
+            except Exception as e:
+                return Response({'error': f'Erreur backup PostgreSQL: {str(e)}'}, status=500)
+            finally:
+                os.unlink(tmp_path)
+        else:
+            return Response({'error': 'Base de données non supportée pour le backup.'}, status=400)
 
     def post(self, request):
-        import shutil
-        from django.conf import settings
-        backup_file = request.FILES.get('backup_file')
-        if not backup_file:
-            return Response({'error': 'Fichier backup requis.'}, status=400)
-        db_path = settings.DATABASES['default']['NAME']
-        with open(db_path, 'wb') as f:
-            for chunk in backup_file.chunks():
-                f.write(chunk)
-        return Response({'status': 'restauré'})
+        return Response({'error': 'Restauration non disponible en mode serveur. Utilisez pg_restore manuellement.'}, status=400)
 
 
 class BalanceAgeeView(APIView):
