@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card, Form, Input, Select, Button, Table, Tag, Modal, DatePicker,
   Popconfirm, Space, message, Typography, Row, Col, Alert,
@@ -37,10 +37,14 @@ const Parametres: React.FC<Props> = ({
   const [exerciceModalOpen, setExerciceModalOpen] = useState(false);
   const [savingExercice, setSavingExercice] = useState(false);
   const [exerciceForm] = Form.useForm();
-  const exerciceCode = Form.useWatch('code', exerciceForm);
 
-  useEffect(() => {
-    const val = String(exerciceCode ?? '').trim();
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - 2 + i).map(y => ({
+    value: String(y),
+    label: String(y),
+  }));
+
+  const handleCodeChange = (val: string) => {
     if (/^\d{4}$/.test(val)) {
       const y = parseInt(val, 10);
       exerciceForm.setFieldsValue({
@@ -49,7 +53,7 @@ const Parametres: React.FC<Props> = ({
         date_fin: dayjs(`${y}-12-31`),
       });
     }
-  }, [exerciceCode]);
+  };
 
   // Initialize societe form
   React.useEffect(() => {
@@ -368,7 +372,12 @@ const Parametres: React.FC<Props> = ({
                 label="Code"
                 rules={[{ required: true, message: 'Code requis' }]}
               >
-                <Input placeholder="2025" />
+                <Select
+                  showSearch
+                  placeholder="2025"
+                  options={yearOptions}
+                  onChange={handleCodeChange}
+                />
               </Form.Item>
             </Col>
             <Col span={16}>
