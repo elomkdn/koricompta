@@ -355,7 +355,20 @@ const Parametres: React.FC<Props> = ({
                 label="Code"
                 rules={[{ required: true, message: 'Code requis' }]}
               >
-                <Input placeholder="2025" />
+                <Input
+                  placeholder="2025"
+                  onChange={e => {
+                    const val = e.target.value.trim();
+                    if (/^\d{4}$/.test(val)) {
+                      const y = parseInt(val, 10);
+                      exerciceForm.setFieldsValue({
+                        libelle: `Exercice ${val}`,
+                        date_debut: dayjs(`${y}-01-01`),
+                        date_fin: dayjs(`${y}-12-31`),
+                      });
+                    }
+                  }}
+                />
               </Form.Item>
             </Col>
             <Col span={16}>
