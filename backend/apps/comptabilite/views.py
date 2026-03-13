@@ -33,6 +33,10 @@ class SocieteViewSet(viewsets.ModelViewSet):
     filter_backends = [SearchFilter]
     search_fields = ['nom', 'sigle']
 
+    def perform_create(self, serializer):
+        societe = serializer.save()
+        ProvisionService.provisionner_plan_ohada(societe)
+
     @action(detail=True, methods=['post'])
     def provisionner(self, request, pk=None):
         """Provisioner une société avec le plan OHADA de base."""

@@ -242,6 +242,18 @@ export default function AppLayout({
         <Form form={societeForm} layout="vertical" onFinish={handleCreateSociete} style={{ marginTop: 16 }}>
           <Form.Item name="nom" label="Raison sociale" rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="sigle" label="Sigle"><Input /></Form.Item>
+          <Form.Item name="forme_juridique" label="Forme juridique">
+            <Select placeholder="Sélectionner..." allowClear options={[
+              { value: 'SARL', label: 'SARL' },
+              { value: 'SA',   label: 'SA' },
+              { value: 'SAS',  label: 'SAS' },
+              { value: 'SNC',  label: 'SNC' },
+              { value: 'EI',   label: 'Entreprise individuelle' },
+              { value: 'GIE',  label: 'GIE' },
+              { value: 'ONG',  label: 'ONG' },
+              { value: 'AUTRE',label: 'Autre' },
+            ]} />
+          </Form.Item>
         </Form>
       </Modal>
 

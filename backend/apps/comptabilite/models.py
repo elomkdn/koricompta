@@ -3,9 +3,24 @@ from django.db import models
 from mptt.models import MPTTModel, TreeForeignKey
 
 
+class FormeJuridique(models.TextChoices):
+    SARL  = 'SARL',  'SARL'
+    SA    = 'SA',    'SA'
+    SAS   = 'SAS',   'SAS'
+    SNC   = 'SNC',   'SNC'
+    EI    = 'EI',    'Entreprise individuelle'
+    GIE   = 'GIE',   'GIE'
+    ONG   = 'ONG',   'ONG'
+    AUTRE = 'AUTRE', 'Autre'
+
+
 class Societe(models.Model):
     nom = models.CharField(max_length=200)
     sigle = models.CharField(max_length=20, blank=True)
+    forme_juridique = models.CharField(
+        max_length=10, choices=FormeJuridique.choices,
+        blank=True, default='',
+    )
     regime_fiscal = models.CharField(max_length=100, blank=True)
     devise = models.CharField(max_length=10, default='XOF')
     adresse = models.TextField(blank=True)
