@@ -93,12 +93,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = []
+
+# Whitenoise sert les assets du frontend (JS/CSS/SVG) directement depuis dist/
 if FRONTEND_DIR.exists():
-    STATICFILES_DIRS.append(('frontend', FRONTEND_DIR))
+    WHITENOISE_ROOT = str(FRONTEND_DIR)
 
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
-    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

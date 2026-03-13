@@ -22,14 +22,9 @@ urlpatterns = [
     path('api/rapports/', include('apps.rapports.urls')),
 ]
 
-# Servir les assets statiques du frontend
+# Toute route non-API → index.html du frontend (SPA routing)
+# Les assets /assets/* et /logo.svg sont servis directement par Whitenoise
 if settings.FRONTEND_DIR.exists():
-    urlpatterns += static('/assets/', document_root=settings.FRONTEND_DIR / 'assets')
-    # Servir logo.svg à la racine
-    urlpatterns += [
-        path('logo.svg', static_serve, {'document_root': settings.FRONTEND_DIR, 'path': 'logo.svg'}),
-    ]
-    # Toute route non-API → index.html du frontend (SPA routing)
     urlpatterns += [
         re_path(r'^(?!api/|admin/|static/).*$',
                 TemplateView.as_view(template_name='index.html'),
