@@ -19,6 +19,7 @@ export const societeApi = {
   list: () => api.get('/api/comptabilite/societes/'),
   create: (data: object) => api.post('/api/comptabilite/societes/', data),
   update: (id: number, data: object) => api.patch(`/api/comptabilite/societes/${id}/`, data),
+  delete: (id: number) => api.delete(`/api/comptabilite/societes/${id}/`),
   provisionner: (id: number) => api.post(`/api/comptabilite/societes/${id}/provisionner/`),
 };
 

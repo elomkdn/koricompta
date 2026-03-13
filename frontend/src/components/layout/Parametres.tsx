@@ -70,6 +70,16 @@ const Parametres: React.FC<Props> = ({
     }
   };
 
+  const handleDeleteSociete = async () => {
+    try {
+      await societeApi.delete(societe.id);
+      message.success('Société supprimée');
+      window.location.reload();
+    } catch {
+      message.error('Erreur lors de la suppression');
+    }
+  };
+
   const handleProvisionner = async () => {
     setProvisioning(true);
     try {
@@ -188,17 +198,29 @@ const Parametres: React.FC<Props> = ({
         title="Informations de la société"
         style={{ marginBottom: 24 }}
         extra={
-          <Popconfirm
-            title="Charger le plan OHADA ?"
-            description="Cela va créer tous les comptes du plan SYSCOHADA révisé. Les comptes existants ne seront pas écrasés."
-            onConfirm={handleProvisionner}
-            okText="Charger"
-            cancelText="Annuler"
-          >
-            <Button loading={provisioning} type="default">
-              Charger plan OHADA
-            </Button>
-          </Popconfirm>
+          <Space>
+            <Popconfirm
+              title="Charger le plan OHADA ?"
+              description="Cela va créer tous les comptes du plan SYSCOHADA révisé. Les comptes existants ne seront pas écrasés."
+              onConfirm={handleProvisionner}
+              okText="Charger"
+              cancelText="Annuler"
+            >
+              <Button loading={provisioning} type="default">
+                Charger plan OHADA
+              </Button>
+            </Popconfirm>
+            <Popconfirm
+              title="Supprimer cette société ?"
+              description="Toutes les données (écritures, comptes, exercices...) seront définitivement supprimées. Cette action est irréversible."
+              onConfirm={handleDeleteSociete}
+              okText="Supprimer"
+              cancelText="Annuler"
+              okButtonProps={{ danger: true }}
+            >
+              <Button danger>Supprimer la société</Button>
+            </Popconfirm>
+          </Space>
         }
       >
         <Form form={societeForm} layout="vertical">
