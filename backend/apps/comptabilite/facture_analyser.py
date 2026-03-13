@@ -37,7 +37,7 @@ TYPE_CHARGE_TO_COMPTE = {
 
 def analyser_facture(fichier_bytes: bytes, mime_type: str) -> dict:
     genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
 
     response = model.generate_content([
         {"inline_data": {"mime_type": mime_type, "data": base64.b64encode(fichier_bytes).decode()}},
