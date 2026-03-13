@@ -15,6 +15,7 @@ const { Text } = Typography;
 
 const NAV = [
   { key: 'ecritures',      icon: <EditOutlined />,           label: 'Saisie des écritures' },
+  { key: 'factures',       icon: <FileTextOutlined />,       label: 'Saisie par facture' },
   { key: 'consultation',   icon: <SearchOutlined />,         label: 'Consultation' },
   { key: 'modeles',        icon: <FileTextOutlined />,       label: "Modèles d'écriture" },
   null,
@@ -32,7 +33,8 @@ const NAV = [
 ];
 
 const LABELS: Record<string, string> = {
-  ecritures: 'Saisie des écritures', consultation: 'Consultation',
+  ecritures: 'Saisie des écritures', factures: 'Saisie par facture',
+  consultation: 'Consultation',
   modeles: "Modèles d'écriture", 'plan-comptable': 'Plan Comptable',
   journaux: 'Journaux', tiers: 'Tiers', rapprochement: 'Rapprochement bancaire',
   immobilisations: 'Immobilisations', rapports: 'Rapports & États',

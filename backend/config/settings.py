@@ -129,3 +129,5 @@ REST_FRAMEWORK = {
 # En mode desktop, login automatique — pas besoin de JWT
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 365  # 1 an
 SESSION_SAVE_EVERY_REQUEST = True
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')

@@ -6,6 +6,7 @@ import { useSociete } from './hooks/useSociete';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './components/layout/LoginPage';
 import SaisieEcritures from './components/ecritures/SaisieEcritures';
+import AnalyseFacture from './components/factures/AnalyseFacture';
 import ConsultationCompte from './components/ecritures/ConsultationCompte';
 import ModelesEcriture from './components/ecritures/ModelesEcriture';
 import PlanComptable from './components/plan-comptable/PlanComptable';
@@ -46,6 +47,8 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
     switch (activeMenu) {
       case 'ecritures':
         return <SaisieEcritures societe={societeActive} exercice={exerciceActif} />;
+      case 'factures':
+        return <AnalyseFacture societe={societeActive} exercice={exerciceActif} />;
       case 'consultation':
         return <ConsultationCompte societe={societeActive} exercice={exerciceActif} />;
       case 'modeles':

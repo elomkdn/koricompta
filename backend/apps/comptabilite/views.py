@@ -8,8 +8,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from .facture_analyser import analyser_facture
 
 from .models import (
     Societe, ClasseCompte, Compte, ExerciceComptable, JournalComptable,
@@ -722,5 +725,26 @@ class GrandLivreAuxiliaireView(APIView):
             })
 
         return Response(results)
+
+
+class AnalyserFactureView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        fichier = request.FILES.get('fichier')
+        if not fichier:
+            return Response({'error': 'Fichier requis'}, status=400)
+
+        mime_type = fichier.content_type
+        allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+        if mime_type not in allowed:
+            return Response({'error': 'Format non supporté (JPEG, PNG, WebP, PDF)'}, status=400)
+
+        try:
+            result = analyser_facture(fichier.read(), mime_type)
+            return Response(result)
+        except Exception as e:
+            return Response({'error': f'Erreur analyse: {str(e)}'}, status=500)
 
 

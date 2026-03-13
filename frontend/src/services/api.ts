@@ -66,6 +66,14 @@ export const pieceApi = {
     api.delete(`/api/comptabilite/pieces/${id}/forcer_suppression/`),
 };
 
+// ---- Analyse facture ----
+export const factureApi = {
+  analyser: (formData: FormData) =>
+    api.post('/api/comptabilite/factures/analyser/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+};
+
 // ---- Tiers ----
 export const tiersApi = {
   list: (societeId: number, params?: object) =>
