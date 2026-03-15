@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authApi } from '../services/api';
+import { authApi, userApi } from '../services/api';
 import type { User } from '../types';
 
 interface AuthState {
@@ -18,12 +18,14 @@ export function useAuth() {
   useEffect(() => {
     authApi
       .status()
+      .then(() => userApi.me())
       .then((res) => setState({ user: res.data, isAuthenticated: true, loading: false }))
       .catch(() => setState({ user: null, isAuthenticated: false, loading: false }));
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const res = await authApi.login(username, password);
+    await authApi.login(username, password);
+    const res = await userApi.me();
     setState({ user: res.data, isAuthenticated: true, loading: false });
   }, []);
 

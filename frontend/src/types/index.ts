@@ -28,7 +28,14 @@ export interface User {
   first_name: string;
   last_name: string;
   role: 'admin' | 'comptable' | 'consultant';
-  societe: number | null;
+  societe_ids: number[];
+}
+
+export interface UserSocieteAccess {
+  id: number;
+  user: number;
+  societe: number;
+  societe_nom: string;
 }
 
 export interface Compte {

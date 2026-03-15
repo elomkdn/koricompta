@@ -4,7 +4,7 @@ import {
   Row, Col, Statistic, Divider, Tag, Select,
 } from 'antd';
 import {
-  DownloadOutlined, ReloadOutlined,
+  DownloadOutlined, ReloadOutlined, PrinterOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type {
@@ -381,6 +381,11 @@ function BilanTab({ societe, exercice }: { societe: Societe; exercice: ExerciceC
         <Button type="primary" icon={<ReloadOutlined />} onClick={charger} loading={loading}>
           Générer le bilan
         </Button>
+        {data && (
+          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
+            Imprimer / PDF
+          </Button>
+        )}
       </Space>
 
       {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
@@ -574,6 +579,11 @@ function CompteResultatTab({ societe, exercice }: { societe: Societe; exercice: 
         <Button type="primary" icon={<ReloadOutlined />} onClick={charger} loading={loading}>
           Générer le compte de résultat
         </Button>
+        {data && (
+          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
+            Imprimer / PDF
+          </Button>
+        )}
       </Space>
 
       {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
@@ -785,6 +795,355 @@ function GrandLivreAuxiliaireTab({ societe, exercice }: { societe: Societe; exer
 }
 
 // ============================================================
+// ONGLET TFT (TABLEAU DE FLUX DE TRÉSORERIE)
+// ============================================================
+
+function TFTTab({ societe, exercice }: { societe: Societe; exercice: ExerciceComptable }) {
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const charger = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await rapportsApi.tft(societe.id, exercice.id);
+      setData(res.data);
+    } catch {
+      setError('Erreur lors du chargement du TFT.');
+    } finally {
+      setLoading(false);
+    }
+  }, [societe.id, exercice.id]);
+
+  const renderLigne = (
+    libelle: string,
+    montant: string | undefined,
+    style: React.CSSProperties = {},
+    signe = false,
+  ) => {
+    const n = num(montant);
+    const color = signe ? (n >= 0 ? '#3f8600' : '#cf1322') : undefined;
+    return (
+      <tr style={{ ...style, borderBottom: '1px solid #f0f0f0' }}>
+        <td style={{ padding: '5px 12px' }}>{libelle}</td>
+        <td style={{ padding: '5px 12px', textAlign: 'right', fontFamily: 'monospace', color }}>
+          {montant !== undefined ? fmt(montant) : '—'}
+        </td>
+      </tr>
+    );
+  };
+
+  return (
+    <div>
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" icon={<ReloadOutlined />} onClick={charger} loading={loading}>
+          Générer le TFT
+        </Button>
+        {data && (
+          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
+            Imprimer / PDF
+          </Button>
+        )}
+      </Space>
+
+      {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>
+      ) : data ? (
+        <>
+          <div style={{ textAlign: 'center', marginBottom: 20 }}>
+            <Title level={4} style={{ margin: 0 }}>
+              TABLEAU DE FLUX DE TRÉSORERIE — {data.exercice}
+            </Title>
+            <Text type="secondary">{societe.nom} — Méthode indirecte</Text>
+          </div>
+
+          <Row gutter={16} style={{ marginBottom: 20 }}>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic title="Flux opérationnels" value={num(data.activites_operationnelles.total)}
+                  formatter={(v) => fmt(String(v))}
+                  valueStyle={{ color: num(data.activites_operationnelles.total) >= 0 ? '#3f8600' : '#cf1322' }} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic title="Flux d'investissement" value={num(data.activites_investissement.total)}
+                  formatter={(v) => fmt(String(v))}
+                  valueStyle={{ color: num(data.activites_investissement.total) >= 0 ? '#3f8600' : '#cf1322' }} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic title="Flux de financement" value={num(data.activites_financement.total)}
+                  formatter={(v) => fmt(String(v))}
+                  valueStyle={{ color: num(data.activites_financement.total) >= 0 ? '#3f8600' : '#cf1322' }} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic title="Variation de trésorerie" value={num(data.variation_tresorerie)}
+                  formatter={(v) => fmt(String(v))}
+                  valueStyle={{ color: num(data.variation_tresorerie) >= 0 ? '#3f8600' : '#cf1322' }} />
+              </Card>
+            </Col>
+          </Row>
+
+          <table style={{ width: '100%', maxWidth: 720, borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#1a3c5e', color: '#fff' }}>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>FLUX DE TRÉSORERIE — SYSCOHADA</th>
+                <th style={{ padding: '8px 12px', textAlign: 'right', width: 160 }}>Montant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* A — Opérations */}
+              <tr style={STYLE_SECTION}><td colSpan={2} style={{ padding: '6px 12px' }}>A — FLUX LIÉS AUX ACTIVITÉS OPÉRATIONNELLES</td></tr>
+              {renderLigne('Résultat net de l\'exercice', data.activites_operationnelles.resultat_net)}
+              {renderLigne('(+) Dotations aux amortissements', data.activites_operationnelles.dotations_amortissements)}
+              {renderLigne('(−) Reprises sur amortissements', data.activites_operationnelles.reprises_amortissements)}
+              {renderLigne('(+) Dotations aux provisions', data.activites_operationnelles.dotations_provisions)}
+              {renderLigne('(−) Reprises sur provisions', data.activites_operationnelles.reprises_provisions)}
+              {renderLigne('(+) VCEE (valeur comptable éléments cédés)', data.activites_operationnelles.vcee)}
+              {renderLigne('(−) Produits de cession d\'immobilisations', data.activites_operationnelles.produits_cessions)}
+              {renderLigne('Variation des stocks', data.activites_operationnelles.variation_stocks)}
+              {renderLigne('Variation des créances clients', data.activites_operationnelles.variation_clients)}
+              {renderLigne('Variation des dettes fournisseurs', data.activites_operationnelles.variation_fournisseurs)}
+              {renderLigne('Variation autres postes BFR', data.activites_operationnelles.variation_autres)}
+              {renderLigne('= FLUX NET DES ACTIVITÉS OPÉRATIONNELLES (A)', data.activites_operationnelles.total, { ...STYLE_TOTAL, fontSize: 13 }, true)}
+
+              {/* B — Investissement */}
+              <tr style={STYLE_SECTION}><td colSpan={2} style={{ padding: '6px 12px' }}>B — FLUX LIÉS AUX ACTIVITÉS D'INVESTISSEMENT</td></tr>
+              {renderLigne('(−) Acquisitions d\'immobilisations', data.activites_investissement.acquisitions)}
+              {renderLigne('(+) Cessions / sorties d\'immobilisations', data.activites_investissement.cessions)}
+              {renderLigne("= FLUX NET DES ACTIVITÉS D'INVESTISSEMENT (B)", data.activites_investissement.total, { ...STYLE_TOTAL, fontSize: 13 }, true)}
+
+              {/* C — Financement */}
+              <tr style={STYLE_SECTION}><td colSpan={2} style={{ padding: '6px 12px' }}>C — FLUX LIÉS AUX ACTIVITÉS DE FINANCEMENT</td></tr>
+              {renderLigne('(+) Augmentation de capital', data.activites_financement.augmentation_capital)}
+              {renderLigne('(+) Emprunts obtenus', data.activites_financement.emprunts_obtenus)}
+              {renderLigne('(−) Remboursements d\'emprunts', data.activites_financement.remboursements_emprunts)}
+              {renderLigne('(−) Dividendes versés', data.activites_financement.dividendes)}
+              {renderLigne('= FLUX NET DES ACTIVITÉS DE FINANCEMENT (C)', data.activites_financement.total, { ...STYLE_TOTAL, fontSize: 13 }, true)}
+
+              {/* Récapitulatif */}
+              <tr style={{ height: 8 }}><td colSpan={2} /></tr>
+              {renderLigne('VARIATION DE TRÉSORERIE (A + B + C)', data.variation_tresorerie, { fontWeight: 700, background: '#d6e4ff', fontSize: 14 }, true)}
+              {renderLigne('Trésorerie d\'ouverture', data.tresorerie_debut, STYLE_SOUS_TOTAL)}
+              {renderLigne('Trésorerie de clôture', data.tresorerie_fin, { ...STYLE_SOUS_TOTAL, fontWeight: 700 })}
+            </tbody>
+          </table>
+        </>
+      ) : (
+        <Card style={{ textAlign: 'center', color: '#999' }}>
+          Cliquez sur "Générer le TFT" pour afficher le tableau de flux de trésorerie.
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// ONGLET NOTES ANNEXES
+// ============================================================
+
+function NotesAnnexesTab({ societe, exercice }: { societe: Societe; exercice: ExerciceComptable }) {
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const charger = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await rapportsApi.notesAnnexes(societe.id, exercice.id);
+      setData(res.data);
+    } catch {
+      setError('Erreur lors du chargement des notes annexes.');
+    } finally {
+      setLoading(false);
+    }
+  }, [societe.id, exercice.id]);
+
+  const colsMouvements = (colonnes: { key: string; title: string }[]): any[] =>
+    colonnes.map(c => ({
+      key: c.key, dataIndex: c.key, title: c.title,
+      align: c.key === 'intitule' ? 'left' : 'right',
+      render: (v: string) => c.key === 'intitule' ? v : fmt(v),
+    }));
+
+  const tableauImmo = data
+    ? [
+        ...data.immobilisations.lignes,
+        { intitule: 'TOTAL', ...data.immobilisations.total, _total: true },
+      ]
+    : [];
+
+  const tableauAmort = data
+    ? [
+        ...data.amortissements.lignes,
+        { intitule: 'TOTAL', ...data.amortissements.total, _total: true },
+      ]
+    : [];
+
+  const tableauProv = data
+    ? [
+        ...data.provisions.lignes,
+        { intitule: 'TOTAL', ...data.provisions.total, _total: true },
+      ]
+    : [];
+
+  const rowClassName = (r: any) => r._total ? 'row-total' : '';
+
+  const immoColumns = colsMouvements([
+    { key: 'intitule', title: 'Catégorie' },
+    { key: 'debut', title: 'Début exercice' },
+    { key: 'acquisitions', title: 'Acquisitions' },
+    { key: 'cessions', title: 'Cessions / sorties' },
+    { key: 'fin', title: 'Fin exercice' },
+  ]);
+
+  const amortColumns = colsMouvements([
+    { key: 'intitule', title: 'Catégorie' },
+    { key: 'debut', title: 'Début exercice' },
+    { key: 'dotations', title: 'Dotations' },
+    { key: 'reprises', title: 'Reprises / sorties' },
+    { key: 'fin', title: 'Fin exercice' },
+  ]);
+
+  const provColumns = colsMouvements([
+    { key: 'intitule', title: 'Catégorie' },
+    { key: 'debut', title: 'Début exercice' },
+    { key: 'dotations', title: 'Dotations' },
+    { key: 'reprises', title: 'Reprises' },
+    { key: 'fin', title: 'Fin exercice' },
+  ]);
+
+  const creancesColumns = colsMouvements([
+    { key: 'intitule', title: 'Catégorie' },
+    { key: 'total', title: 'Total' },
+    { key: 'inf_1an', title: '< 1 an' },
+    { key: 'sup_1an', title: '> 1 an' },
+  ]);
+
+  const annexeItems = data
+    ? [
+        {
+          key: 'immo',
+          label: 'Immobilisations',
+          children: (
+            <>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                Mouvements des valeurs brutes pendant l'exercice
+              </Text>
+              <Table
+                dataSource={tableauImmo} columns={immoColumns}
+                rowKey="intitule" size="small" pagination={false} bordered
+                rowClassName={rowClassName}
+              />
+            </>
+          ),
+        },
+        {
+          key: 'amort',
+          label: 'Amortissements',
+          children: (
+            <>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                Mouvements des amortissements cumulés
+              </Text>
+              <Table
+                dataSource={tableauAmort} columns={amortColumns}
+                rowKey="intitule" size="small" pagination={false} bordered
+                rowClassName={rowClassName}
+              />
+            </>
+          ),
+        },
+        {
+          key: 'prov',
+          label: 'Provisions',
+          children: (
+            <>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                Mouvements des provisions et dépréciations
+              </Text>
+              <Table
+                dataSource={tableauProv} columns={provColumns}
+                rowKey="intitule" size="small" pagination={false} bordered
+                rowClassName={rowClassName}
+              />
+            </>
+          ),
+        },
+        {
+          key: 'cd',
+          label: 'Créances & Dettes',
+          children: (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Title level={5}>Créances</Title>
+                <Table
+                  dataSource={[
+                    ...data.creances_dettes.creances.lignes,
+                    { intitule: 'TOTAL', ...data.creances_dettes.creances.total, _total: true },
+                  ]}
+                  columns={creancesColumns}
+                  rowKey="intitule" size="small" pagination={false} bordered
+                  rowClassName={rowClassName}
+                />
+              </Col>
+              <Col span={12}>
+                <Title level={5}>Dettes</Title>
+                <Table
+                  dataSource={[
+                    ...data.creances_dettes.dettes.lignes,
+                    { intitule: 'TOTAL', ...data.creances_dettes.dettes.total, _total: true },
+                  ]}
+                  columns={creancesColumns}
+                  rowKey="intitule" size="small" pagination={false} bordered
+                  rowClassName={rowClassName}
+                />
+              </Col>
+            </Row>
+          ),
+        },
+      ]
+    : [];
+
+  return (
+    <div>
+      <style>{`.row-total td { font-weight: 700; background: #f0f2f5; }`}</style>
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" icon={<ReloadOutlined />} onClick={charger} loading={loading}>
+          Générer les annexes
+        </Button>
+      </Space>
+
+      {error && <Alert type="error" message={error} style={{ marginBottom: 12 }} />}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 48 }}><Spin size="large" /></div>
+      ) : data ? (
+        <>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <Title level={4} style={{ margin: 0 }}>NOTES ANNEXES — {data.exercice}</Title>
+            <Text type="secondary">{societe.nom}</Text>
+          </div>
+          <Tabs items={annexeItems} type="line" />
+        </>
+      ) : (
+        <Card style={{ textAlign: 'center', color: '#999' }}>
+          Cliquez sur "Générer les annexes" pour afficher les tableaux annexes SYSCOHADA.
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 
@@ -820,10 +1179,21 @@ export default function Rapports({ societe, exercice }: Props) {
       label: 'Grand Livre Auxiliaire',
       children: <GrandLivreAuxiliaireTab societe={societe} exercice={exercice} />,
     },
+    {
+      key: 'tft',
+      label: 'Flux de Trésorerie',
+      children: <TFTTab societe={societe} exercice={exercice} />,
+    },
+    {
+      key: 'notes-annexes',
+      label: 'Notes Annexes',
+      children: <NotesAnnexesTab societe={societe} exercice={exercice} />,
+    },
   ];
 
   return (
     <div>
+      <style>{`@media print { .ant-layout-sider, .ant-tabs-nav, button { display: none !important; } }`}</style>
       <div style={{ marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>Rapports & États Financiers</Title>
         <Text type="secondary">

@@ -1,12 +1,6 @@
-# ── Stage 1 : build du frontend ──────────────────────────────────────────────
-FROM node:20-alpine AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm ci
-COPY frontend/ .
-RUN npm run build
-
-# ── Stage 2 : backend Django ──────────────────────────────────────────────────
+# ── Backend Django + frontend pré-compilé ─────────────────────────────────────
+# Le frontend est compilé localement avant déploiement (npm run build),
+# puis le dist/ est copié directement dans l'image. Plus rapide, pas de cache stale.
 FROM python:3.12-slim
 WORKDIR /app
 
@@ -18,7 +12,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
-COPY --from=frontend-build /app/frontend/dist ./frontend/dist/
+COPY frontend/dist/ ./frontend/dist/
 
 WORKDIR /app/backend
 

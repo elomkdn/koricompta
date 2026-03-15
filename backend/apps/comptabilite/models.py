@@ -412,3 +412,25 @@ class Immobilisation(models.Model):
                 'valeur_nette': str(valeur_nette),
             })
         return lignes
+
+
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('create', 'Création'),
+        ('update', 'Modification'),
+        ('delete', 'Suppression'),
+        ('validate', 'Validation'),
+        ('force_delete', 'Suppression forcée'),
+    ]
+    societe = models.ForeignKey(Societe, on_delete=models.CASCADE, related_name='audit_logs', null=True, blank=True)
+    utilisateur = models.CharField(max_length=150, blank=True)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    modele = models.CharField(max_length=100)
+    objet_id = models.IntegerField(null=True, blank=True)
+    description = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Log d\'audit'

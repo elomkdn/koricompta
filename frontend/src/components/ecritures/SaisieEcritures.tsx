@@ -5,11 +5,11 @@ import {
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  CheckOutlined, DeleteFilled,
+  CheckOutlined, DeleteFilled, EditOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { Societe, ExerciceComptable, PieceComptable, LigneEcriture, Journal, Compte, Tiers } from '../../types';
+import { Societe, ExerciceComptable, PieceComptable, LigneEcriture, Journal, Compte, Tiers, User } from '../../types';
 import { pieceApi, journalApi, compteApi, tiersApi } from '../../services/api';
 
 const { Title, Text } = Typography;
@@ -17,6 +17,7 @@ const { Title, Text } = Typography;
 interface Props {
   societe: Societe;
   exercice: ExerciceComptable;
+  user?: User | null;
 }
 
 interface LigneForm {
@@ -42,7 +43,8 @@ const newLigne = (): LigneForm => ({
   tiers_id: undefined,
 });
 
-const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
+const SaisieEcritures: React.FC<Props> = ({ societe, exercice, user }) => {
+  const isConsultant = user?.role === 'consultant';
   const [pieces, setPieces] = useState<PieceComptable[]>([]);
   const [journals, setJournals] = useState<Journal[]>([]);
   const [comptes, setComptes] = useState<Compte[]>([]);
@@ -56,8 +58,9 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
   const [filterStatut, setFilterStatut] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState('');
 
-  // New piece modal
+  // New/Edit piece modal
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingPiece, setEditingPiece] = useState<PieceComptable | null>(null);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
   const [lignes, setLignes] = useState<LigneForm[]>([newLigne(), newLigne()]);
@@ -141,8 +144,29 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
   };
 
   const openNewPiece = () => {
+    setEditingPiece(null);
     form.resetFields();
     setLignes([newLigne(), newLigne()]);
+    setModalOpen(true);
+  };
+
+  const openEditPiece = (piece: PieceComptable) => {
+    setEditingPiece(piece);
+    form.setFieldsValue({
+      journal_id: piece.journal,
+      date_piece: piece.date_piece ? dayjs(piece.date_piece) : undefined,
+      libelle: piece.libelle,
+      reference: piece.reference,
+    });
+    const lignesFromPiece: LigneForm[] = (piece.lignes || []).map(l => ({
+      key: generateKey(),
+      compte_id: (l as any).compte_id ?? (l as any).compte,
+      libelle: l.libelle,
+      debit: Number(l.debit) || 0,
+      credit: Number(l.credit) || 0,
+      tiers_id: (l as any).tiers_id ?? (l as any).tiers,
+    }));
+    setLignes(lignesFromPiece.length >= 2 ? lignesFromPiece : [newLigne(), newLigne()]);
     setModalOpen(true);
   };
 
@@ -203,25 +227,36 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
 
     setSaving(true);
     try {
-      await pieceApi.create({
-        exercice_id: exercice.id,
-        journal_id: values.journal_id,
-        date_piece: values.date_piece.format('YYYY-MM-DD'),
-        libelle: values.libelle,
-        reference: values.reference,
-        lignes: lignes.map(l => ({
-          compte_id: l.compte_id,
-          libelle: l.libelle,
-          debit: l.debit || 0,
-          credit: l.credit || 0,
-          ...(l.tiers_id ? { tiers_id: l.tiers_id } : {}),
-        })),
-      });
-      message.success('Pièce créée');
+      const lignesPayload = lignes.map(l => ({
+        compte_id: l.compte_id,
+        libelle: l.libelle,
+        debit: l.debit || 0,
+        credit: l.credit || 0,
+        ...(l.tiers_id ? { tiers_id: l.tiers_id } : {}),
+      }));
+      if (editingPiece) {
+        await pieceApi.modifier(editingPiece.id, {
+          date_piece: values.date_piece.format('YYYY-MM-DD'),
+          libelle: values.libelle,
+          reference: values.reference,
+          lignes: lignesPayload,
+        });
+        message.success('Pièce modifiée');
+      } else {
+        await pieceApi.create({
+          exercice_id: exercice.id,
+          journal_id: values.journal_id,
+          date_piece: values.date_piece.format('YYYY-MM-DD'),
+          libelle: values.libelle,
+          reference: values.reference,
+          lignes: lignesPayload,
+        });
+        message.success('Pièce créée');
+      }
       setModalOpen(false);
       loadPieces(currentPage);
     } catch {
-      message.error('Erreur lors de la création de la pièce');
+      message.error(editingPiece ? 'Erreur lors de la modification de la pièce' : 'Erreur lors de la création de la pièce');
     } finally {
       setSaving(false);
     }
@@ -339,7 +374,16 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
       width: 130,
       render: (_, record) => (
         <Space size={4}>
-          {record.statut === 'brouillard' && (
+          {record.statut === 'brouillard' && !isConsultant && (
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              title="Modifier"
+              onClick={() => openEditPiece(record)}
+            />
+          )}
+          {record.statut === 'brouillard' && !isConsultant && (
             <Popconfirm
               title="Valider cette pièce ?"
               description="La pièce sera définitivement validée."
@@ -356,7 +400,7 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
               />
             </Popconfirm>
           )}
-          {record.statut === 'brouillard' && (
+          {record.statut === 'brouillard' && !isConsultant && (
             <Popconfirm
               title="Supprimer cette pièce ?"
               onConfirm={() => handleDelete(record.id)}
@@ -373,22 +417,24 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
               />
             </Popconfirm>
           )}
-          <Popconfirm
-            title="Forcer la suppression ?"
-            description="Cette pièce sera supprimée même si validée. Irréversible."
-            onConfirm={() => handleForcerSuppression(record.id)}
-            okText="Forcer"
-            cancelText="Annuler"
-            okButtonProps={{ danger: true }}
-          >
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteFilled />}
-              title="Forcer la suppression"
-            />
-          </Popconfirm>
+          {!isConsultant && (
+            <Popconfirm
+              title="Forcer la suppression ?"
+              description="Cette pièce sera supprimée même si validée. Irréversible."
+              onConfirm={() => handleForcerSuppression(record.id)}
+              okText="Forcer"
+              cancelText="Annuler"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteFilled />}
+                title="Forcer la suppression"
+              />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -520,11 +566,13 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
             Saisie des écritures — {exercice.libelle}
           </Title>
         </Col>
-        <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openNewPiece}>
-            Nouvelle pièce
-          </Button>
-        </Col>
+        {!isConsultant && (
+          <Col>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openNewPiece}>
+              Nouvelle pièce
+            </Button>
+          </Col>
+        )}
       </Row>
 
       {/* Filter bar */}
@@ -584,9 +632,9 @@ const SaisieEcritures: React.FC<Props> = ({ societe, exercice }) => {
         size="middle"
       />
 
-      {/* New piece modal */}
+      {/* New/Edit piece modal */}
       <Modal
-        title="Nouvelle pièce comptable"
+        title={editingPiece ? 'Modifier la pièce comptable' : 'Nouvelle pièce comptable'}
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
         onOk={handleSave}

@@ -1,17 +1,22 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
 from django.http import HttpResponse
 
 from apps.comptabilite.models import Societe, ExerciceComptable
+from apps.comptabilite.permissions import get_accessible_societe_ids
 from .generators.grand_livre import GrandLivreGenerator
 from .generators.balance import BalanceGenerator
 from .generators.bilan import BilanGenerator
 from .generators.compte_resultat import CompteResultatGenerator
+from .generators.tft import TFTGenerator
+from .generators.notes_annexes import NotesAnnexesGenerator
 from .exports.excel_export import ExcelExporter
 
 
 class GrandLivreView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
@@ -24,6 +29,10 @@ class GrandLivreView(APIView):
                 {'error': 'Les paramètres societe et exercice sont requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
 
         societe = Societe.objects.get(id=societe_id)
         exercice = ExerciceComptable.objects.get(id=exercice_id)
@@ -44,6 +53,8 @@ class GrandLivreView(APIView):
 
 
 class BalanceView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
@@ -55,6 +66,10 @@ class BalanceView(APIView):
                 {'error': 'Les paramètres societe et exercice sont requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
 
         societe = Societe.objects.get(id=societe_id)
         exercice = ExerciceComptable.objects.get(id=exercice_id)
@@ -77,6 +92,8 @@ class BalanceView(APIView):
 
 
 class BilanView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
@@ -86,6 +103,10 @@ class BilanView(APIView):
                 {'error': 'Les paramètres societe et exercice sont requis.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
 
         societe = Societe.objects.get(id=societe_id)
         exercice = ExerciceComptable.objects.get(id=exercice_id)
@@ -95,6 +116,8 @@ class BilanView(APIView):
 
 
 class CompteResultatView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
@@ -105,10 +128,62 @@ class CompteResultatView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
+
         societe = Societe.objects.get(id=societe_id)
         exercice = ExerciceComptable.objects.get(id=exercice_id)
 
         data = CompteResultatGenerator.generer(societe, exercice)
+        return Response(_serialize_data(data))
+
+
+class TFTView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        societe_id = request.query_params.get('societe')
+        exercice_id = request.query_params.get('exercice')
+
+        if not societe_id or not exercice_id:
+            return Response(
+                {'error': 'Les paramètres societe et exercice sont requis.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
+
+        societe = Societe.objects.get(id=societe_id)
+        exercice = ExerciceComptable.objects.get(id=exercice_id)
+
+        data = TFTGenerator.generer(societe, exercice)
+        return Response(_serialize_data(data))
+
+
+class NotesAnnexesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        societe_id = request.query_params.get('societe')
+        exercice_id = request.query_params.get('exercice')
+
+        if not societe_id or not exercice_id:
+            return Response(
+                {'error': 'Les paramètres societe et exercice sont requis.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ids = get_accessible_societe_ids(request.user)
+        if ids is not None and int(societe_id) not in ids:
+            return Response({'error': 'Accès refusé'}, status=403)
+
+        societe = Societe.objects.get(id=societe_id)
+        exercice = ExerciceComptable.objects.get(id=exercice_id)
+
+        data = NotesAnnexesGenerator.generer(societe, exercice)
         return Response(_serialize_data(data))
 
 

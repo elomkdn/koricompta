@@ -14,6 +14,20 @@ export const authApi = {
   status: () => api.get('/api/auth/status/'),
 };
 
+// ---- Users ----
+export const userApi = {
+  me: () => api.get('/api/users/me/'),
+  list: () => api.get('/api/users/'),
+  create: (data: object) => api.post('/api/users/', data),
+  update: (id: number, data: object) => api.patch(`/api/users/${id}/`, data),
+  delete: (id: number) => api.delete(`/api/users/${id}/`),
+  listAccesses: (userId?: number) =>
+    api.get('/api/users/accesses/', { params: userId ? { user: userId } : {} }),
+  createAccess: (data: { user: number; societe: number }) =>
+    api.post('/api/users/accesses/', data),
+  deleteAccess: (id: number) => api.delete(`/api/users/accesses/${id}/`),
+};
+
 // ---- Societes & Exercices ----
 export const societeApi = {
   list: () => api.get('/api/comptabilite/societes/'),
@@ -64,6 +78,7 @@ export const pieceApi = {
   delete: (id: number) => api.delete(`/api/comptabilite/pieces/${id}/`),
   forcerSuppression: (id: number) =>
     api.delete(`/api/comptabilite/pieces/${id}/forcer_suppression/`),
+  modifier: (id: number, data: object) => api.patch(`/api/comptabilite/pieces/${id}/modifier/`, data),
 };
 
 // ---- Analyse facture ----
@@ -134,6 +149,11 @@ export const immobilisationApi = {
     api.get(`/api/comptabilite/immobilisations/${id}/tableau_amortissement/`),
   comptabiliser: (id: number, exerciceId: number) =>
     api.post(`/api/comptabilite/immobilisations/${id}/comptabiliser/`, {
+      exercice_id: exerciceId,
+    }),
+  doterTout: (societeId: number, exerciceId: number) =>
+    api.post('/api/comptabilite/immobilisations/doter_tout/', {
+      societe_id: societeId,
       exercice_id: exerciceId,
     }),
 };
@@ -220,6 +240,16 @@ export const rapportsApi = {
     `${window.location.origin}/api/rapports/balance/?societe=${societeId}&exercice=${exerciceId}&format=excel`,
   exportGrandLivre: (societeId: number, exerciceId: number) =>
     `${window.location.origin}/api/rapports/grand-livre/?societe=${societeId}&exercice=${exerciceId}&format=excel`,
+  tft: (societeId: number, exerciceId: number) =>
+    api.get('/api/rapports/tft/', { params: { societe: societeId, exercice: exerciceId } }),
+  notesAnnexes: (societeId: number, exerciceId: number) =>
+    api.get('/api/rapports/notes-annexes/', { params: { societe: societeId, exercice: exerciceId } }),
+};
+
+// ---- Audit Log ----
+export const auditApi = {
+  list: (societeId: number) =>
+    api.get('/api/comptabilite/audit-log/', { params: { societe: societeId } }),
 };
 
 export default api;

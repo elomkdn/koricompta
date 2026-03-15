@@ -16,6 +16,7 @@ def session_login(request):
     user = authenticate(request, username=username, password=password)
     if user is not None:
         login(request, user)
+        societe_ids = list(user.societe_accesses.values_list('societe_id', flat=True))
         return JsonResponse({
             'id': user.id,
             'username': user.username,
@@ -23,7 +24,7 @@ def session_login(request):
             'first_name': user.first_name,
             'last_name': user.last_name,
             'role': user.role,
-            'societe': user.societe_id,
+            'societe_ids': societe_ids,
         })
     return JsonResponse({'error': 'Identifiants incorrects.'}, status=401)
 
@@ -39,6 +40,7 @@ def session_logout(request):
 def session_status(request):
     """Vérifie si l'utilisateur est connecté."""
     if request.user.is_authenticated:
+        societe_ids = list(request.user.societe_accesses.values_list('societe_id', flat=True))
         return JsonResponse({
             'id': request.user.id,
             'username': request.user.username,
@@ -46,6 +48,6 @@ def session_status(request):
             'first_name': request.user.first_name,
             'last_name': request.user.last_name,
             'role': request.user.role,
-            'societe': request.user.societe_id,
+            'societe_ids': societe_ids,
         })
     return JsonResponse({'error': 'Non authentifié.'}, status=401)

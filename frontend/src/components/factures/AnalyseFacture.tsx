@@ -3,7 +3,7 @@ import {
   Card, Upload, Button, Table, Form, Input, InputNumber, Select,
   Space, Tag, message, Spin, Alert, Row, Col, Divider, Typography,
 } from 'antd';
-import { InboxOutlined, CheckOutlined } from '@ant-design/icons';
+import { InboxOutlined, CheckOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { Societe, ExerciceComptable, Journal } from '../../types';
 import { factureApi, journalApi, compteApi, pieceApi } from '../../services/api';
 import dayjs from 'dayjs';
@@ -12,12 +12,15 @@ const { Dragger } = Upload;
 const { Title, Text } = Typography;
 
 interface LigneProposee {
+  key: string;
   sens: 'debit' | 'credit';
   compte_numero: string;
   compte_libelle: string;
   libelle: string;
   montant: number;
 }
+
+const genKey = () => Math.random().toString(36).slice(2);
 
 interface Extraction {
   date: string;
@@ -28,11 +31,16 @@ interface Extraction {
   taux_tva: number;
   montant_tva: number;
   montant_ttc: number;
+  deja_paye: boolean;
+  mode_paiement: string | null;
 }
 
 interface AnalyseResult {
   extraction: Extraction;
   lignes_proposees: LigneProposee[];
+  equilibre: boolean;
+  total_debit: number;
+  total_credit: number;
 }
 
 interface Props {
@@ -68,9 +76,10 @@ export default function AnalyseFacture({ societe, exercice, exercices }: Props) 
     try {
       const fd = new FormData();
       fd.append('fichier', file);
+      fd.append('societe_id', String(societe.id));
       const res = await factureApi.analyser(fd);
       setResult(res.data);
-      setLignes(res.data.lignes_proposees);
+      setLignes((res.data.lignes_proposees as any[]).map(l => ({ ...l, key: genKey() })));
       form.setFieldsValue({
         date: res.data.extraction.date,
         piece_ref: res.data.extraction.numero_facture || '',
@@ -121,6 +130,7 @@ export default function AnalyseFacture({ societe, exercice, exercices }: Props) 
       setResult(null);
       setLignes([]);
       form.resetFields();
+
     } catch (e: any) {
       const err = e?.response?.data?.error || e?.response?.data?.detail || JSON.stringify(e?.response?.data) || "Erreur lors de la création de l'écriture";
       message.error(err, 6);
@@ -129,17 +139,96 @@ export default function AnalyseFacture({ societe, exercice, exercices }: Props) 
     }
   };
 
+  const updateLigne = (key: string, field: keyof LigneProposee, value: any) => {
+    setLignes(prev => prev.map(l => l.key === key ? { ...l, [field]: value } : l));
+  };
+
+  const removeLigne = (key: string) => {
+    setLignes(prev => prev.filter(l => l.key !== key));
+  };
+
+  const addLigne = () => {
+    setLignes(prev => [...prev, {
+      key: genKey(), sens: 'debit', compte_numero: '', compte_libelle: '', libelle: '', montant: 0,
+    }]);
+  };
+
+  const totalDebit = lignes.reduce((s, l) => s + (l.sens === 'debit' ? Number(l.montant) || 0 : 0), 0);
+  const totalCredit = lignes.reduce((s, l) => s + (l.sens === 'credit' ? Number(l.montant) || 0 : 0), 0);
+  const equilibre = Math.abs(totalDebit - totalCredit) < 0.01;
+
   const columns = [
     {
-      title: 'Sens', dataIndex: 'sens', width: 80,
-      render: (s: string) => <Tag color={s === 'debit' ? 'blue' : 'green'}>{s === 'debit' ? 'Débit' : 'Crédit'}</Tag>,
+      title: 'Sens', dataIndex: 'sens', width: 100,
+      render: (s: string, record: LigneProposee) => (
+        <Select
+          size="small"
+          style={{ width: '100%' }}
+          value={s}
+          onChange={v => updateLigne(record.key, 'sens', v)}
+          options={[
+            { value: 'debit', label: 'Débit' },
+            { value: 'credit', label: 'Crédit' },
+          ]}
+        />
+      ),
     },
-    { title: 'Compte', dataIndex: 'compte_numero', width: 90 },
-    { title: 'Intitulé', dataIndex: 'compte_libelle' },
-    { title: 'Libellé', dataIndex: 'libelle' },
     {
-      title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const,
-      render: (v: number) => <Text strong>{v.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</Text>,
+      title: 'Compte', dataIndex: 'compte_numero', width: 180,
+      render: (val: string, record: LigneProposee) => (
+        <Select
+          showSearch
+          size="small"
+          style={{ width: '100%' }}
+          value={val || undefined}
+          placeholder="Numéro..."
+          onChange={(v: string) => {
+            const c = comptes.find((c: any) => c.numero === v);
+            updateLigne(record.key, 'compte_numero', v);
+            if (c) updateLigne(record.key, 'compte_libelle', c.intitule);
+          }}
+          filterOption={(input, option) =>
+            String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+          }
+          options={comptes.map((c: any) => ({ value: c.numero, label: `${c.numero} — ${c.intitule}` }))}
+        />
+      ),
+    },
+    {
+      title: 'Libellé', dataIndex: 'libelle',
+      render: (val: string, record: LigneProposee) => (
+        <Input
+          size="small"
+          value={val}
+          onChange={e => updateLigne(record.key, 'libelle', e.target.value)}
+        />
+      ),
+    },
+    {
+      title: 'Montant', dataIndex: 'montant', width: 130, align: 'right' as const,
+      render: (val: number, record: LigneProposee) => (
+        <InputNumber
+          size="small"
+          style={{ width: '100%' }}
+          value={val || undefined}
+          onChange={v => updateLigne(record.key, 'montant', v || 0)}
+          min={0}
+          precision={2}
+          placeholder="0,00"
+        />
+      ),
+    },
+    {
+      title: '', key: 'del', width: 40,
+      render: (_: any, record: LigneProposee) => (
+        <Button
+          type="text"
+          danger
+          size="small"
+          icon={<DeleteOutlined />}
+          onClick={() => removeLigne(record.key)}
+        />
+      ),
     },
   ];
 
@@ -186,6 +275,23 @@ export default function AnalyseFacture({ societe, exercice, exercices }: Props) 
             }
           />
 
+          {!result.equilibre && (
+            <Alert
+              type="warning"
+              message={`Écriture déséquilibrée — Débit : ${result.total_debit.toLocaleString('fr-FR')} / Crédit : ${result.total_credit.toLocaleString('fr-FR')} — Vérifiez les lignes avant de valider.`}
+              style={{ marginBottom: 12 }}
+              showIcon
+            />
+          )}
+          {result.extraction.deja_paye && (
+            <Alert
+              type="info"
+              message={`Facture déjà payée par ${result.extraction.mode_paiement || 'virement'} — l'écriture inclut le compte de trésorerie.`}
+              style={{ marginBottom: 12 }}
+              showIcon
+            />
+          )}
+
           <Card title="Écriture proposée" style={{ marginBottom: 16 }}>
             <Form form={form} layout="vertical">
               <Row gutter={16}>
@@ -229,12 +335,36 @@ export default function AnalyseFacture({ societe, exercice, exercices }: Props) 
             <Table
               dataSource={lignes}
               columns={columns}
-              rowKey={(r, i) => String(i)}
+              rowKey="key"
               pagination={false}
               size="small"
             />
 
-            <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <Button
+              type="dashed"
+              block
+              icon={<PlusOutlined />}
+              onClick={addLigne}
+              style={{ marginTop: 8, marginBottom: 8 }}
+            >
+              Ajouter une ligne
+            </Button>
+
+            <Row gutter={16} justify="end" style={{ marginBottom: 8 }}>
+              <Col>
+                <Text>Total Débit : <Text strong>{totalDebit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</Text></Text>
+              </Col>
+              <Col>
+                <Text>Total Crédit : <Text strong>{totalCredit.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</Text></Text>
+              </Col>
+              <Col>
+                <Text style={{ color: equilibre ? '#52c41a' : '#ff4d4f' }}>
+                  {equilibre ? 'Equilibré' : 'Déséquilibré'}
+                </Text>
+              </Col>
+            </Row>
+
+            <div style={{ marginTop: 8, textAlign: 'right' }}>
               <Space>
                 <Button onClick={() => { setResult(null); setLignes([]); form.resetFields(); }}>
                   Annuler

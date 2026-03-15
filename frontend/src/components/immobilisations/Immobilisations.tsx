@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
   Table, Button, Modal, Form, Input, Select, DatePicker, InputNumber,
-  Popconfirm, Tag, Space, message, Typography, Row, Col,
+  Popconfirm, Tag, Space, message, Typography, Row, Col, Alert,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, TableOutlined, CalculatorOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, TableOutlined, CalculatorOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { Societe, ExerciceComptable, Immobilisation, Compte } from '../../types';
@@ -121,6 +121,21 @@ const Immobilisations: React.FC<Props> = ({ societe, exercice }) => {
       message.error("Erreur lors du chargement du tableau d'amortissement");
     } finally {
       setTableauLoading(false);
+    }
+  };
+
+  const handleDoterTout = async () => {
+    try {
+      const res = await immobilisationApi.doterTout(societe.id, exercice.id);
+      const { pieces_creees, erreurs } = res.data;
+      if (erreurs && erreurs.length > 0) {
+        message.warning(`${pieces_creees} dotation(s) créée(s). Erreurs : ${erreurs.join(', ')}`);
+      } else {
+        message.success(`${pieces_creees} dotation(s) créée(s) avec succès`);
+      }
+      loadData();
+    } catch {
+      message.error('Erreur lors de la dotation en lot');
     }
   };
 
@@ -316,9 +331,20 @@ const Immobilisations: React.FC<Props> = ({ societe, exercice }) => {
           </Title>
         </Col>
         <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Nouvelle immobilisation
-          </Button>
+          <Space>
+            <Popconfirm
+              title="Doter toutes les immobilisations ?"
+              description={`Comptabiliser les dotations de toutes les immobilisations actives pour ${exercice.libelle} ?`}
+              onConfirm={handleDoterTout}
+              okText="Doter tout"
+              cancelText="Annuler"
+            >
+              <Button icon={<ThunderboltOutlined />}>Tout doter</Button>
+            </Popconfirm>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Nouvelle immobilisation
+            </Button>
+          </Space>
         </Col>
       </Row>
 

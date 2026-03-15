@@ -12,7 +12,7 @@ from .views import (
     ConsultationCompteView,
     DeclarationTVAView, BackupView,
     BalanceAgeeView, JournalCentralisateurView, GrandLivreAuxiliaireView,
-    AnalyserFactureView,
+    AnalyserFactureView, AuditLogView,
 )
 
 router = DefaultRouter()
@@ -37,4 +37,5 @@ path('declaration-tva/', DeclarationTVAView.as_view(), name='declaration_tva'),
     path('journal-centralisateur/', JournalCentralisateurView.as_view(), name='journal_centralisateur'),
     path('grand-livre-auxiliaire/', GrandLivreAuxiliaireView.as_view(), name='grand_livre_auxiliaire'),
     path('factures/analyser/', AnalyserFactureView.as_view(), name='analyser_facture'),
+    path('audit-log/', AuditLogView.as_view(), name='audit_log'),
 ]

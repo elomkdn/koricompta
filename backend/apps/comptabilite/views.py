@@ -13,11 +13,12 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .facture_analyser import analyser_facture
+from .permissions import SocieteFilterMixin, IsNotConsultantOrReadOnly
 
 from .models import (
     Societe, ClasseCompte, Compte, ExerciceComptable, JournalComptable,
     PieceComptable, LigneEcriture, Tiers, ReleveBancaire, LigneReleve,
-    ModeleEcriture, LigneModeleEcriture, Immobilisation,
+    ModeleEcriture, LigneModeleEcriture, Immobilisation, AuditLog,
 )
 from .serializers import (
     SocieteSerializer, ClasseCompteSerializer, CompteSerializer, CompteListSerializer,
@@ -29,12 +30,41 @@ from .serializers import (
 from .services import EcritureService, LettrageService, ClotureService, RapprochementService, ProvisionService
 
 
-class SocieteViewSet(viewsets.ModelViewSet):
+def _log_audit(request, action, modele, objet_id=None, description='', societe=None):
+    from .models import AuditLog
+    try:
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))
+        if ip and ',' in ip:
+            ip = ip.split(',')[0].strip()
+        AuditLog.objects.create(
+            societe=societe,
+            utilisateur=request.user.username if request.user.is_authenticated else 'anonyme',
+            action=action,
+            modele=modele,
+            objet_id=objet_id,
+            description=description,
+            ip_address=ip or None,
+        )
+    except Exception:
+        pass
+
+
+def check_societe_access(request, societe_id):
+    """Returns True if current user can access this societe."""
+    if request.user.is_superuser:
+        return True
+    ids = list(request.user.societe_accesses.values_list('societe_id', flat=True))
+    return int(societe_id) in ids
+
+
+class SocieteViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = Societe.objects.all()
     serializer_class = SocieteSerializer
     pagination_class = None
     filter_backends = [SearchFilter]
     search_fields = ['nom', 'sigle']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'id'
 
     def perform_create(self, serializer):
         societe = serializer.save()
@@ -48,21 +78,25 @@ class SocieteViewSet(viewsets.ModelViewSet):
         return Response({'status': 'provisionné'})
 
 
-class ClasseCompteViewSet(viewsets.ModelViewSet):
+class ClasseCompteViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = ClasseCompte.objects.all()
     serializer_class = ClasseCompteSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['societe']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
 
-class CompteViewSet(viewsets.ModelViewSet):
+class CompteViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = Compte.objects.select_related('classe', 'parent').all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['societe', 'classe', 'type_compte', 'nature', 'lettrable', 'est_tiers', 'actif']
     search_fields = ['numero', 'intitule']
     ordering_fields = ['numero', 'intitule']
     ordering = ['numero']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     def get_serializer_class(self):
         if self.action in ['list']:
@@ -82,6 +116,8 @@ class CompteViewSet(viewsets.ModelViewSet):
         societe_id = request.query_params.get('societe')
         if not societe_id:
             return Response({'error': 'societe requis'}, status=400)
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
         racines = Compte.objects.filter(
             societe=societe_id, parent=None
         ).order_by('numero')
@@ -89,12 +125,14 @@ class CompteViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class ExerciceComptableViewSet(viewsets.ModelViewSet):
+class ExerciceComptableViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = ExerciceComptable.objects.all()
     serializer_class = ExerciceComptableSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['societe', 'statut']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     @action(detail=True, methods=['post'])
     def cloture(self, request, pk=None):
@@ -109,16 +147,18 @@ class ExerciceComptableViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class JournalComptableViewSet(viewsets.ModelViewSet):
+class JournalComptableViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = JournalComptable.objects.all()
     serializer_class = JournalComptableSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['societe', 'type_journal', 'actif']
     search_fields = ['code', 'intitule']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
 
-class PieceComptableViewSet(viewsets.ModelViewSet):
+class PieceComptableViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = PieceComptable.objects.select_related('journal', 'exercice').prefetch_related('lignes__compte', 'lignes__tiers').all()
     serializer_class = PieceComptableSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -126,6 +166,8 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
     search_fields = ['numero_piece', 'libelle', 'reference']
     ordering_fields = ['date_piece', 'numero_piece', 'created_at']
     ordering = ['-date_piece', '-numero_piece']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'exercice__societe_id'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -147,6 +189,9 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
             journal = JournalComptable.objects.get(id=data['journal_id'])
         except (ExerciceComptable.DoesNotExist, JournalComptable.DoesNotExist) as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not check_societe_access(request, exercice.societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         lignes_data = []
         for ligne in data['lignes']:
@@ -184,10 +229,20 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        _log_audit(
+            request, 'create', 'PieceComptable', objet_id=piece.id,
+            description=f'Création pièce {piece.numero_piece} - {piece.libelle}',
+            societe=piece.exercice.societe,
+        )
         return Response(PieceComptableSerializer(piece).data, status=status.HTTP_201_CREATED)
 
     def destroy(self, request, *args, **kwargs):
         piece = self.get_object()
+        _log_audit(
+            request, 'delete', 'PieceComptable', objet_id=piece.id,
+            description=f'Suppression pièce {piece.numero_piece} - {piece.libelle}',
+            societe=piece.exercice.societe,
+        )
         try:
             EcritureService.supprimer_piece(piece)
         except ValidationError as e:
@@ -201,6 +256,11 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
             EcritureService.valider_piece(piece)
         except ValidationError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        _log_audit(
+            request, 'validate', 'PieceComptable', objet_id=piece.id,
+            description=f'Validation pièce {piece.numero_piece} - {piece.libelle}',
+            societe=piece.exercice.societe,
+        )
         return Response(PieceComptableSerializer(piece).data)
 
     @action(detail=True, methods=['delete'], url_path='forcer_suppression')
@@ -213,11 +273,52 @@ class PieceComptableViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['patch'])
+    def modifier(self, request, pk=None):
+        """Modifie une pièce en brouillon."""
+        piece = self.get_object()
+        data = request.data
+        lignes_data = []
+        for ligne in data.get('lignes', []):
+            try:
+                compte = Compte.objects.get(id=ligne['compte_id'])
+            except Compte.DoesNotExist:
+                return Response({'error': f"Compte {ligne.get('compte_id')} introuvable."}, status=400)
+            tiers = None
+            if ligne.get('tiers_id'):
+                try:
+                    tiers = Tiers.objects.get(id=ligne['tiers_id'])
+                except Tiers.DoesNotExist:
+                    pass
+            lignes_data.append({
+                'compte': compte,
+                'libelle': ligne.get('libelle', data.get('libelle', '')),
+                'debit': Decimal(str(ligne.get('debit', '0'))),
+                'credit': Decimal(str(ligne.get('credit', '0'))),
+                'tiers': tiers,
+            })
+        try:
+            from datetime import datetime
+            date_piece = None
+            if data.get('date_piece'):
+                date_piece = datetime.strptime(data['date_piece'], '%Y-%m-%d').date()
+            piece = EcritureService.modifier_piece_brouillard(
+                piece,
+                date_piece=date_piece,
+                libelle=data.get('libelle'),
+                reference=data.get('reference'),
+                lignes_data=lignes_data if lignes_data else None,
+            )
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=400)
+        return Response(PieceComptableSerializer(piece).data)
+
 
 class LigneEcritureViewSet(viewsets.ModelViewSet):
     queryset = LigneEcriture.objects.select_related('compte', 'tiers').all()
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['piece', 'compte', 'lettrage_code']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
 
     def get_serializer_class(self):
         from .serializers import LigneEcritureSerializer
@@ -243,12 +344,14 @@ class LigneEcritureViewSet(viewsets.ModelViewSet):
         return Response({'status': 'ok'})
 
 
-class TiersViewSet(viewsets.ModelViewSet):
+class TiersViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = Tiers.objects.select_related('compte_collectif').all()
     serializer_class = TiersSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['societe', 'type_tiers', 'actif']
     search_fields = ['code', 'nom']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -258,12 +361,14 @@ class TiersViewSet(viewsets.ModelViewSet):
         return qs
 
 
-class ReleveBancaireViewSet(viewsets.ModelViewSet):
+class ReleveBancaireViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = ReleveBancaire.objects.prefetch_related('lignes').all()
     serializer_class = ReleveBancaireSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['societe', 'exercice', 'compte_banque']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     @action(detail=True, methods=['post'])
     def importer_lignes(self, request, pk=None):
@@ -322,13 +427,15 @@ class ReleveBancaireViewSet(viewsets.ModelViewSet):
         return Response({'status': 'ok'})
 
 
-class ImmobilisationViewSet(viewsets.ModelViewSet):
+class ImmobilisationViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = Immobilisation.objects.select_related('compte').all()
     serializer_class = ImmobilisationSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['societe', 'exercice', 'actif']
     search_fields = ['designation', 'reference']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     @action(detail=True, methods=['get'])
     def tableau_amortissement(self, request, pk=None):
@@ -379,14 +486,81 @@ class ImmobilisationViewSet(viewsets.ModelViewSet):
 
         return Response({'piece_id': piece.id, 'annuite': str(annuite)})
 
+    @action(detail=False, methods=['post'])
+    def doter_tout(self, request):
+        """Comptabilise les dotations de toutes les immobilisations actives de l'exercice."""
+        exercice_id = request.data.get('exercice_id')
+        societe_id = request.data.get('societe_id')
 
-class ModeleEcritureViewSet(viewsets.ModelViewSet):
+        if societe_id and not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
+
+        try:
+            exercice = ExerciceComptable.objects.get(id=exercice_id)
+        except ExerciceComptable.DoesNotExist:
+            return Response({'error': 'Exercice introuvable.'}, status=400)
+
+        immobilisations = Immobilisation.objects.filter(
+            societe_id=societe_id, actif=True
+        )
+
+        compte_dotation = Compte.objects.filter(
+            societe_id=societe_id, numero__startswith='681'
+        ).first() or Compte.objects.filter(societe_id=societe_id, numero__startswith='68').first()
+
+        journal_od = JournalComptable.objects.filter(
+            societe_id=societe_id, type_journal='od'
+        ).first()
+
+        if not compte_dotation or not journal_od:
+            return Response({'error': 'Comptes 68x ou journal OD introuvables.'}, status=400)
+
+        pieces_creees = []
+        erreurs = []
+
+        for immo in immobilisations:
+            annuite = immo.calculer_amortissement_annuel()
+            if annuite <= 0:
+                continue
+            compte_amort = Compte.objects.filter(
+                societe_id=societe_id,
+                numero__startswith='28'
+            ).first()
+            if not compte_amort:
+                erreurs.append(f"{immo.designation}: compte 28x introuvable")
+                continue
+            try:
+                piece = EcritureService.creer_piece(
+                    exercice=exercice,
+                    journal=journal_od,
+                    date_piece=exercice.date_fin,
+                    libelle=f'Dotation amortissement {immo.designation}',
+                    lignes_data=[
+                        {'compte': compte_dotation, 'debit': annuite, 'credit': Decimal('0'),
+                         'libelle': f'Dotation {immo.designation}'},
+                        {'compte': compte_amort, 'debit': Decimal('0'), 'credit': annuite,
+                         'libelle': f'Amortissement {immo.designation}'},
+                    ],
+                )
+                pieces_creees.append(piece.id)
+            except Exception as e:
+                erreurs.append(f"{immo.designation}: {str(e)}")
+
+        return Response({
+            'pieces_creees': len(pieces_creees),
+            'erreurs': erreurs,
+        })
+
+
+class ModeleEcritureViewSet(SocieteFilterMixin, viewsets.ModelViewSet):
     queryset = ModeleEcriture.objects.prefetch_related('lignes__compte').all()
     serializer_class = ModeleEcritureSerializer
     pagination_class = None
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['societe', 'journal']
     search_fields = ['code', 'libelle']
+    permission_classes = [IsAuthenticated, IsNotConsultantOrReadOnly]
+    societe_lookup = 'societe_id'
 
     @action(detail=True, methods=['post'])
     def appliquer(self, request, pk=None):
@@ -437,6 +611,8 @@ class ModeleEcritureViewSet(viewsets.ModelViewSet):
 
 
 class ConsultationCompteView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
@@ -445,6 +621,9 @@ class ConsultationCompteView(APIView):
 
         if not societe_id or not exercice_id:
             return Response({'error': 'societe et exercice requis.'}, status=400)
+
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         from .models import Compte as CompteModel
         comptes = CompteModel.objects.filter(societe=societe_id)
@@ -495,14 +674,17 @@ class ConsultationCompteView(APIView):
         return Response(results)
 
 
-
-
 class DeclarationTVAView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
         if not societe_id or not exercice_id:
             return Response({'error': 'societe et exercice requis.'}, status=400)
+
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         exercice = ExerciceComptable.objects.get(id=exercice_id)
 
@@ -526,6 +708,8 @@ class DeclarationTVAView(APIView):
 
 
 class BackupView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         import subprocess, tempfile, os
         from django.conf import settings
@@ -571,6 +755,8 @@ class BackupView(APIView):
 
 
 class BalanceAgeeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         from datetime import date as date_type
         societe_id = request.query_params.get('societe')
@@ -578,6 +764,9 @@ class BalanceAgeeView(APIView):
         type_tiers = request.query_params.get('type_tiers', 'client')
         if not societe_id or not exercice_id:
             return Response({'error': 'societe et exercice requis.'}, status=400)
+
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         exercice = ExerciceComptable.objects.get(id=exercice_id)
         today = date_type.today()
@@ -638,11 +827,16 @@ class BalanceAgeeView(APIView):
 
 
 class JournalCentralisateurView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         societe_id = request.query_params.get('societe')
         exercice_id = request.query_params.get('exercice')
         if not societe_id or not exercice_id:
             return Response({'error': 'societe et exercice requis.'}, status=400)
+
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         exercice = ExerciceComptable.objects.get(id=exercice_id)
         journaux = JournalComptable.objects.filter(societe=societe_id, actif=True)
@@ -680,6 +874,8 @@ class JournalCentralisateurView(APIView):
 
 
 class GrandLivreAuxiliaireView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         from itertools import groupby
         societe_id = request.query_params.get('societe')
@@ -687,6 +883,9 @@ class GrandLivreAuxiliaireView(APIView):
         tiers_id = request.query_params.get('tiers')
         if not societe_id or not exercice_id:
             return Response({'error': 'societe et exercice requis.'}, status=400)
+
+        if not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
 
         exercice = ExerciceComptable.objects.get(id=exercice_id)
         qs = LigneEcriture.objects.filter(
@@ -741,10 +940,45 @@ class AnalyserFactureView(APIView):
         if mime_type not in allowed:
             return Response({'error': 'Format non supporté (JPEG, PNG, WebP, PDF)'}, status=400)
 
+        societe_id = request.data.get('societe_id') or request.query_params.get('societe_id')
+
+        if societe_id and not check_societe_access(request, societe_id):
+            return Response({'error': 'Accès refusé'}, status=403)
+
         try:
-            result = analyser_facture(fichier.read(), mime_type)
+            result = analyser_facture(fichier.read(), mime_type, societe_id=int(societe_id) if societe_id else None)
             return Response(result)
         except Exception as e:
             return Response({'error': f'Erreur analyse: {str(e)}'}, status=500)
 
 
+class AuditLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import AuditLog
+        from .permissions import get_accessible_societe_ids
+        societe_id = request.query_params.get('societe')
+        qs = AuditLog.objects.all()
+
+        if societe_id:
+            if not check_societe_access(request, societe_id):
+                return Response({'error': 'Accès refusé'}, status=403)
+            qs = qs.filter(societe_id=societe_id)
+        else:
+            ids = get_accessible_societe_ids(request.user)
+            if ids is not None:
+                qs = qs.filter(societe_id__in=ids)
+
+        qs = qs[:200]
+        data = [{
+            'id': l.id,
+            'created_at': l.created_at.strftime('%Y-%m-%d %H:%M'),
+            'utilisateur': l.utilisateur,
+            'action': l.action,
+            'modele': l.modele,
+            'objet_id': l.objet_id,
+            'description': l.description,
+            'ip_address': l.ip_address,
+        } for l in qs]
+        return Response(data)
