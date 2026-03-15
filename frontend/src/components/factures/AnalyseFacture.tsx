@@ -38,14 +38,16 @@ interface AnalyseResult {
 interface Props {
   societe: Societe;
   exercice: ExerciceComptable;
+  exercices: ExerciceComptable[];
 }
 
-export default function AnalyseFacture({ societe, exercice }: Props) {
+export default function AnalyseFacture({ societe, exercice, exercices }: Props) {
   const [analysing, setAnalysing] = useState(false);
   const [result, setResult] = useState<AnalyseResult | null>(null);
   const [journaux, setJournaux] = useState<Journal[]>([]);
   const [comptes, setComptes] = useState<any[]>([]);
   const [journalId, setJournalId] = useState<number | null>(null);
+  const [exerciceId, setExerciceId] = useState<number>(exercice.id);
   const [saving, setSaving] = useState(false);
   const [lignes, setLignes] = useState<LigneProposee[]>([]);
   const [form] = Form.useForm();
@@ -108,7 +110,7 @@ export default function AnalyseFacture({ societe, exercice }: Props) {
     setSaving(true);
     try {
       await pieceApi.create({
-        exercice_id: exercice.id,
+        exercice_id: exerciceId,
         journal_id: journalId,
         date_piece: values.date,
         reference: values.piece_ref,
@@ -120,7 +122,8 @@ export default function AnalyseFacture({ societe, exercice }: Props) {
       setLignes([]);
       form.resetFields();
     } catch (e: any) {
-      message.error("Erreur lors de la création de l'écriture");
+      const err = e?.response?.data?.error || e?.response?.data?.detail || JSON.stringify(e?.response?.data) || "Erreur lors de la création de l'écriture";
+      message.error(err, 6);
     } finally {
       setSaving(false);
     }
@@ -186,17 +189,26 @@ export default function AnalyseFacture({ societe, exercice }: Props) {
           <Card title="Écriture proposée" style={{ marginBottom: 16 }}>
             <Form form={form} layout="vertical">
               <Row gutter={16}>
-                <Col span={6}>
+                <Col span={5}>
+                  <Form.Item label="Exercice">
+                    <Select
+                      value={exerciceId}
+                      onChange={setExerciceId}
+                      options={exercices.filter(e => e.statut === 'ouvert').map(e => ({ value: e.id, label: e.libelle }))}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={5}>
                   <Form.Item name="date" label="Date" rules={[{ required: true }]}>
                     <Input />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={5}>
                   <Form.Item name="piece_ref" label="N° facture">
                     <Input />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={5}>
                   <Form.Item label="Journal">
                     <Select
                       value={journalId}
@@ -205,7 +217,7 @@ export default function AnalyseFacture({ societe, exercice }: Props) {
                     />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={10}>
                   <Form.Item name="libelle" label="Libellé" rules={[{ required: true }]}>
                     <Input />
                   </Form.Item>

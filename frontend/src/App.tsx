@@ -48,7 +48,7 @@ function AuthenticatedApp({ onLogout }: { onLogout: () => void }) {
       case 'ecritures':
         return <SaisieEcritures societe={societeActive} exercice={exerciceActif} />;
       case 'factures':
-        return <AnalyseFacture societe={societeActive} exercice={exerciceActif} />;
+        return <AnalyseFacture societe={societeActive} exercice={exerciceActif} exercices={exercices} />;
       case 'consultation':
         return <ConsultationCompte societe={societeActive} exercice={exerciceActif} />;
       case 'modeles':
