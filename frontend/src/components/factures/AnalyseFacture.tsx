@@ -82,30 +82,36 @@ export default function AnalyseFacture({ societe, exercice }: Props) {
   };
 
   const findCompteId = (numero: string): number | null => {
-    const c = comptes.find((c: any) => c.numero.startsWith(numero));
-    return c ? c.id : null;
+    // Try progressively shorter prefixes
+    for (let len = numero.length; len >= 2; len--) {
+      const prefix = numero.substring(0, len);
+      const c = comptes.find((c: any) => c.numero.startsWith(prefix));
+      if (c) return c.id;
+    }
+    return null;
   };
 
   const handleValider = async () => {
     if (!journalId) { message.error('Sélectionnez un journal'); return; }
     const values = await form.validateFields();
+    const lignesApi = lignes.map(l => ({
+      compte_id: findCompteId(l.compte_numero),
+      libelle: l.libelle,
+      debit: l.sens === 'debit' ? l.montant : 0,
+      credit: l.sens === 'credit' ? l.montant : 0,
+    }));
+    const manquants = lignes.filter((l, i) => !lignesApi[i].compte_id);
+    if (manquants.length > 0) {
+      message.error(`Compte(s) introuvable(s) : ${manquants.map(l => l.compte_numero).join(', ')}`);
+      return;
+    }
     setSaving(true);
     try {
-      const lignesApi = lignes.map(l => {
-        const compteId = findCompteId(l.compte_numero);
-        return {
-          compte_id: compteId,
-          libelle: l.libelle,
-          debit: l.sens === 'debit' ? l.montant : 0,
-          credit: l.sens === 'credit' ? l.montant : 0,
-        };
-      });
       await pieceApi.create({
-        societe: societe.id,
-        exercice: exercice.id,
-        journal: journalId,
-        date: values.date,
-        piece_ref: values.piece_ref,
+        exercice_id: exercice.id,
+        journal_id: journalId,
+        date_piece: values.date,
+        reference: values.piece_ref,
         libelle: values.libelle,
         lignes: lignesApi,
       });
